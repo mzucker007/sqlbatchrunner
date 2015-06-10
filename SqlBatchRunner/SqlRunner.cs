@@ -21,21 +21,22 @@ namespace SqlBatchRunner
             String[] filesPreviouslyRun = readControlTable();
             foreach (var fileojb in sqlFiles)
             {
-                if (Array.IndexOf(filesPreviouslyRun, fileojb.FullName) > -1)
+                if (Array.IndexOf(filesPreviouslyRun, fileojb.Name) > -1)
                 {
-                    Console.WriteLine("Previously executed: {0}", fileojb.FullName);
+                    Console.WriteLine("Previously executed: {0}", fileojb.Name);
                 }
                 else
                 {
-                    runSql(fileojb.FullName);
+                    runSql(fileojb);
                 }
             }
             return 0;
         }
 
-        static int runSql(String fileName) {
-            Console.WriteLine("Running: {0}", fileName);
-            var fileContent = File.ReadAllText(fileName);
+        static int runSql(FileInfo fileojb)
+        {
+            Console.WriteLine("Running: {0}", fileojb.Name);
+            var fileContent = File.ReadAllText(fileojb.FullName);
             fileContent = fileContent.Replace("GO", "go");
             var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -53,7 +54,7 @@ namespace SqlBatchRunner
                 }
 
                 //  log the filename in table
-                cmd.CommandText = String.Format("insert SqlBatchControl (filename) values ('{0}')", fileName);
+                cmd.CommandText = String.Format("insert SqlBatchControl (filename) values ('{0}')", fileojb.Name);
                 cmd.ExecuteNonQuery();
             }
             catch (Exception ex)
