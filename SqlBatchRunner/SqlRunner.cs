@@ -68,6 +68,34 @@ namespace SqlBatchRunner
             return 0;
         }
 
+        public static bool createControlTable()
+        {
+            bool result;
+            var con = new SqlConnection(connectionString);
+            var cmd = new SqlCommand( @"if object_id(N'dbo.SqlBatchControl') is null 
+                                        create table dbo.SqlBatchControl ( 
+	                                    id int identity(1,1) primary key, 
+	                                    filename varchar(max) not null, 
+                                        insert_date datetime not null default (getutcdate()) )", con);
+
+            try
+            {
+                con.Open();
+                cmd.ExecuteNonQuery();
+                result = true;
+            }
+            catch (Exception ex)
+            {
+                result = false;
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                con.Close();
+            }
+            return result;
+        }
+
         static String[] readControlTable()
         {
             List<String> filesPreviouslyRun = new List<string>();

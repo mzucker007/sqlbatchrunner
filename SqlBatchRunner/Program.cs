@@ -12,12 +12,16 @@ namespace SqlBatchRunner
         {
             if (args.Length == 1)
             {
+                //  create SqlBatchControl table if it doesn't exist
+                SqlRunner.createControlTable();
                 //  execute sql found in target folder
                 Console.WriteLine("Executing SQL found in {0}", args[0]);
                 SqlRunner.Run(args[0]);
             }
             else if (args.Length == 0)
             {
+                //  create SqlBatchControl table if it doesn't exist
+                SqlRunner.createControlTable();
                 //  execute sql found folder local to execution context
                 Console.WriteLine("Executing SQL found in {0}", Environment.CurrentDirectory);
                 SqlRunner.Run(Environment.CurrentDirectory);

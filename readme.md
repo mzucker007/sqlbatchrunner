@@ -6,6 +6,8 @@ SQL Server only.
 
 ## Usage
 
+A control table named dbo.SqlBatchControl will be created in the database if it does not yet exist.
+
 Save *.sql files to a folder.
 
 Edit connection string in SqlBatchRunner.exe.config
