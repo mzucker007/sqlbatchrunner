@@ -7,6 +7,9 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Configuration;
 using System.Collections;
+using System.Data;
+using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace SqlBatchRunner
 {
@@ -18,26 +21,32 @@ namespace SqlBatchRunner
         {
             var folderInfo = new DirectoryInfo(folderPath);
             FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
-            String[] filesPreviouslyRun = readControlTable();
+            DataTable filesPreviouslyRun = readControlTable();
+
             foreach (var fileojb in sqlFiles)
             {
-                if (Array.IndexOf(filesPreviouslyRun, fileojb.Name) > -1)
+                //  calculate checksum of file contents
+                var fileContent = File.ReadAllText(fileojb.FullName);
+                var cksum = createCkSum(fileContent);
+
+                if (filesPreviouslyRun.AsEnumerable().Any(row => cksum == row.Field<String>("CheckSum")))
                 {
                     Console.WriteLine("Previously executed: {0}", fileojb.Name);
                 }
                 else
                 {
-                    runSql(fileojb);
+                    runSql(fileojb.Name, fileContent, cksum);
                 }
             }
             return 0;
         }
 
-        static int runSql(FileInfo fileojb)
+        static int runSql(String fileName, String fileContent, String cksum)
         {
-            Console.WriteLine("Running: {0}", fileojb.Name);
-            var fileContent = File.ReadAllText(fileojb.FullName);
-            fileContent = fileContent.Replace("GO", "go");
+            Console.WriteLine("Running: {0}", fileName);
+            //var fileContent = File.ReadAllText(fileojb.FullName);
+            //var cksum = createCkSum(fileContent);
+            fileContent = fileContent.Replace("GO", "go").Replace("Go", "go");
             var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
 
             //var connectionString = ConfigurationManager.AppSettings["ConnectionString"];
@@ -54,7 +63,7 @@ namespace SqlBatchRunner
                 }
 
                 //  log the filename in table
-                cmd.CommandText = String.Format("insert SqlBatchControl (filename) values ('{0}')", fileojb.Name);
+                cmd.CommandText = String.Format("insert SqlBatchControl (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
                 cmd.ExecuteNonQuery();
             }
             catch (Exception ex)
@@ -72,11 +81,12 @@ namespace SqlBatchRunner
         {
             bool result;
             var con = new SqlConnection(connectionString);
-            var cmd = new SqlCommand( @"if object_id(N'dbo.SqlBatchControl') is null 
+            var cmd = new SqlCommand(@"if object_id(N'dbo.SqlBatchControl') is null 
                                         create table dbo.SqlBatchControl ( 
-	                                    id int identity(1,1) primary key, 
-	                                    filename varchar(max) not null, 
-                                        insert_date datetime not null default (getutcdate()) )", con);
+	                                    OriginalFileName varchar(max) not null, 
+                                        CheckSum varchar(max) not null primary key,
+                                        Connection varchar(max) not null,
+                                        UtcDateRun datetime not null default (getutcdate()) )", con);
 
             try
             {
@@ -96,21 +106,18 @@ namespace SqlBatchRunner
             return result;
         }
 
-        static String[] readControlTable()
+        static DataTable readControlTable()
         {
             List<String> filesPreviouslyRun = new List<string>();
             var con = new SqlConnection(connectionString);
-            var cmd = new SqlCommand("select filename from SqlBatchControl", con);
+            var cmd = new SqlCommand("select OriginalFileName, CheckSum from SqlBatchControl", con);
+            var fileDataTable = new DataTable();
 
             try
             {
                 con.Open();
                 SqlDataReader reader = cmd.ExecuteReader();
-
-                while (reader.Read())
-                {
-                    filesPreviouslyRun.Add(reader["fileName"].ToString());
-                }
+                fileDataTable.Load(reader);
             }
             catch (Exception ex)
             {
@@ -121,7 +128,45 @@ namespace SqlBatchRunner
                 con.Close();
             }
 
-            return filesPreviouslyRun.ToArray();
+            return fileDataTable;
+        }
+
+        static String createCkSum(String filetext)
+        {
+            byte[] filetextBytes = Encoding.ASCII.GetBytes(filetext);
+
+            using (var md5 = MD5.Create())
+            {
+                    return md5.ComputeHash(filetextBytes);
+            }
+
+        }
+
+        public static string Md5SumByProcess(string file)
+        {
+            var p = new Process();
+            p.StartInfo.FileName = "md5sum.exe";
+            p.StartInfo.Arguments = file;
+            p.StartInfo.UseShellExecute = false;
+            p.StartInfo.RedirectStandardOutput = true;
+            p.Start();
+            p.WaitForExit();
+            string output = p.StandardOutput.ReadToEnd();
+            return output.Split(' ')[0].Substring(1).ToUpper();
+        }
+
+        static byte[] GetBytes(string str)
+        {
+            byte[] bytes = new byte[str.Length * sizeof(char)];
+            System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
+            return bytes;
+        }
+
+        static string GetString(byte[] bytes)
+        {
+            char[] chars = new char[bytes.Length / sizeof(char)];
+            System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length);
+            return new string(chars);
         }
     }
 }
