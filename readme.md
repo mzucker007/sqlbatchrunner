@@ -12,12 +12,14 @@ Save *.sql files to a folder.
 
 Edit connection string in SqlBatchRunner.exe.config
 
+Edit directory path for *.sql files in SqlBatchRunner.exe.config (optional). 
+
 Execute as follows:
 ```
 SqlBatchRunner.exe [path-to-sql-files]
 ```
 
-Optional. If you copy SqlBatchRunner.exe and SqlBatchRunner.exe.config into the folder with the sql files, it will execute the sql files in that folder.
+Optional. If you copy SqlBatchRunner.exe and SqlBatchRunner.exe.config into the folder with the sql files, it will execute the sql files in that folder. Otherwise, you can pass the path-to-sql files as an argument in the command line, or set it in the config file.
 
 
 

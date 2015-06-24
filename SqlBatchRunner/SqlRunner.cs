@@ -21,17 +21,19 @@ namespace SqlBatchRunner
         {
             var folderInfo = new DirectoryInfo(folderPath);
             FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
+            sqlFiles.OrderBy(f => f.Name);
             DataTable filesPreviouslyRun = readControlTable();
 
             foreach (var fileojb in sqlFiles)
             {
-                //  calculate checksum of file contents
                 var fileContent = File.ReadAllText(fileojb.FullName);
+
+                //  calculate checksum of file contents
                 var cksum = createCkSum(fileContent);
 
                 if (filesPreviouslyRun.AsEnumerable().Any(row => cksum == row.Field<String>("CheckSum")))
                 {
-                    Console.WriteLine("Previously executed: {0}", fileojb.Name);
+                    Console.WriteLine("Previously executed: {0} with checksum: {1}", fileojb.Name, cksum);
                 }
                 else
                 {
@@ -44,12 +46,9 @@ namespace SqlBatchRunner
         static int runSql(String fileName, String fileContent, String cksum)
         {
             Console.WriteLine("Running: {0}", fileName);
-            //var fileContent = File.ReadAllText(fileojb.FullName);
-            //var cksum = createCkSum(fileContent);
             fileContent = fileContent.Replace("GO", "go").Replace("Go", "go");
             var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
 
-            //var connectionString = ConfigurationManager.AppSettings["ConnectionString"];
             var con = new SqlConnection(connectionString);
             var cmd = new SqlCommand("query", con);
 
@@ -84,7 +83,7 @@ namespace SqlBatchRunner
             var cmd = new SqlCommand(@"if object_id(N'dbo.SqlBatchControl') is null 
                                         create table dbo.SqlBatchControl ( 
 	                                    OriginalFileName varchar(max) not null, 
-                                        CheckSum varchar(max) not null primary key,
+                                        CheckSum varchar(max) not null,
                                         Connection varchar(max) not null,
                                         UtcDateRun datetime not null default (getutcdate()) )", con);
 
@@ -108,7 +107,6 @@ namespace SqlBatchRunner
 
         static DataTable readControlTable()
         {
-            List<String> filesPreviouslyRun = new List<string>();
             var con = new SqlConnection(connectionString);
             var cmd = new SqlCommand("select OriginalFileName, CheckSum from SqlBatchControl", con);
             var fileDataTable = new DataTable();
@@ -133,40 +131,12 @@ namespace SqlBatchRunner
 
         static String createCkSum(String filetext)
         {
-            byte[] filetextBytes = Encoding.ASCII.GetBytes(filetext);
+            byte[] filetextBytes = Encoding.UTF8.GetBytes(filetext);
 
             using (var md5 = MD5.Create())
             {
-                    return md5.ComputeHash(filetextBytes);
+                return BitConverter.ToString(md5.ComputeHash(filetextBytes)).Replace("-", string.Empty);
             }
-
-        }
-
-        public static string Md5SumByProcess(string file)
-        {
-            var p = new Process();
-            p.StartInfo.FileName = "md5sum.exe";
-            p.StartInfo.Arguments = file;
-            p.StartInfo.UseShellExecute = false;
-            p.StartInfo.RedirectStandardOutput = true;
-            p.Start();
-            p.WaitForExit();
-            string output = p.StandardOutput.ReadToEnd();
-            return output.Split(' ')[0].Substring(1).ToUpper();
-        }
-
-        static byte[] GetBytes(string str)
-        {
-            byte[] bytes = new byte[str.Length * sizeof(char)];
-            System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
-            return bytes;
-        }
-
-        static string GetString(byte[] bytes)
-        {
-            char[] chars = new char[bytes.Length / sizeof(char)];
-            System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length);
-            return new string(chars);
         }
     }
 }
