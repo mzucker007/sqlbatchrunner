@@ -1,49 +1,53 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Data.SqlClient;
 using System.IO;
-using System.Configuration;
-using System.Collections;
 using System.Data;
-using System.Diagnostics;
 using System.Security.Cryptography;
 
 namespace SqlBatchRunner
 {
-    static class SqlRunner
+    class SqlRunner
     {
-        private static String connectionString = ConfigurationManager.AppSettings["ConnectionString"];
+        private String connectionString;
 
-        public static int Run(String folderPath)
+        public SqlRunner(String connectionString)
         {
-            var folderInfo = new DirectoryInfo(folderPath);
-            FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
-            sqlFiles.OrderBy(f => f.Name);
-            DataTable filesPreviouslyRun = readControlTable();
-
-            foreach (var fileojb in sqlFiles)
-            {
-                var fileContent = File.ReadAllText(fileojb.FullName);
-
-                //  calculate checksum of file contents
-                var cksum = createCkSum(fileContent);
-
-                if (filesPreviouslyRun.AsEnumerable().Any(row => cksum == row.Field<String>("CheckSum")))
-                {
-                    Console.WriteLine("Previously executed: {0} with checksum: {1}", fileojb.Name, cksum);
-                }
-                else
-                {
-                    runSql(fileojb.Name, fileContent, cksum);
-                }
-            }
-            return 0;
+            this.connectionString = connectionString;
         }
 
-        static int runSql(String fileName, String fileContent, String cksum)
+        public void Run(String folderPath)
+        {
+            DataTable filesPreviouslyRun = readControlTable();
+
+            if (filesPreviouslyRun != null)
+            {
+                var folderInfo = new DirectoryInfo(folderPath);
+                FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
+                sqlFiles.OrderBy(f => f.Name);
+
+                foreach (var fileojb in sqlFiles)
+                {
+                    var fileContent = File.ReadAllText(fileojb.FullName);
+
+                    //  calculate checksum of file contents
+                    var cksum = createCkSum(fileContent);
+
+                    if (filesPreviouslyRun.AsEnumerable().Any(row => cksum == row.Field<String>("CheckSum")))
+                    {
+                        Console.WriteLine("Previously executed: {0} with checksum: {1}", fileojb.Name, cksum);
+                    }
+                    else
+                    {
+                        runSql(fileojb.Name, fileContent, cksum);
+                    }
+                }
+            }
+            return;
+        }
+
+        void runSql(String fileName, String fileContent, String cksum)
         {
             Console.WriteLine("Running: {0}", fileName);
             fileContent = fileContent.Replace("GO", "go").Replace("Go", "go");
@@ -73,10 +77,10 @@ namespace SqlBatchRunner
             {
                 con.Close();
             }
-            return 0;
+            return;
         }
 
-        public static bool createControlTable()
+        public bool createControlTable()
         {
             bool result;
             var con = new SqlConnection(connectionString);
@@ -105,27 +109,31 @@ namespace SqlBatchRunner
             return result;
         }
 
-        static DataTable readControlTable()
+        DataTable readControlTable()
         {
-            var con = new SqlConnection(connectionString);
-            var cmd = new SqlCommand("select OriginalFileName, CheckSum from SqlBatchControl", con);
-            var fileDataTable = new DataTable();
+            DataTable fileDataTable = null;
 
-            try
+            if (createControlTable())
             {
-                con.Open();
-                SqlDataReader reader = cmd.ExecuteReader();
-                fileDataTable.Load(reader);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            finally
-            {
-                con.Close();
-            }
+                var con = new SqlConnection(connectionString);
+                var cmd = new SqlCommand("select OriginalFileName, CheckSum from SqlBatchControl", con);
 
+                try
+                {
+                    con.Open();
+                    SqlDataReader reader = cmd.ExecuteReader();
+                    fileDataTable = new DataTable();
+                    fileDataTable.Load(reader);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+                finally
+                {
+                    con.Close();
+                }
+            }
             return fileDataTable;
         }
 
