@@ -51,7 +51,7 @@ namespace SqlBatchRunner
         {
             Console.WriteLine("Running: {0}", fileName);
             fileContent = fileContent.Replace("GO", "go").Replace("Go", "go");
-            var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
+            var sqlqueries = fileContent.Split(new[] { "go\r\n", "go\n" }, StringSplitOptions.RemoveEmptyEntries);
 
             var con = new SqlConnection(connectionString);
             var cmd = new SqlCommand("query", con);
@@ -66,13 +66,13 @@ namespace SqlBatchRunner
                 }
 
                 //  log the filename in table
-                cmd.CommandText = String.Format("insert SqlBatchControl (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
+                cmd.CommandText = String.Format("insert into [dbo].[SqlBatchControl] (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
                 cmd.ExecuteNonQuery();
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine(ex.Message);
+            //}
             finally
             {
                 con.Close();
@@ -97,11 +97,11 @@ namespace SqlBatchRunner
                 cmd.ExecuteNonQuery();
                 result = true;
             }
-            catch (Exception ex)
-            {
-                result = false;
-                Console.WriteLine(ex.Message);
-            }
+            //catch (Exception ex)
+            //{
+            //    result = false;
+            //    Console.WriteLine(ex.Message);
+            //}
             finally
             {
                 con.Close();
@@ -125,10 +125,10 @@ namespace SqlBatchRunner
                     fileDataTable = new DataTable();
                     fileDataTable.Load(reader);
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
+                //catch (Exception ex)
+                //{
+                //    Console.WriteLine(ex.Message);
+                //}
                 finally
                 {
                     con.Close();

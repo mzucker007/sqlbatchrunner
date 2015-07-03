@@ -20,6 +20,8 @@ namespace SqlBatchRunner
             var filename = Path.Combine(directoryName, "config.json");
             if (File.Exists(filename))
             {
+                Console.WriteLine("Processing directory {0}", directoryName);
+
                 var connectionString = GetConnectionString(directoryName);
 
                 var runner = new SqlRunner(connectionString);
@@ -33,7 +35,7 @@ namespace SqlBatchRunner
 
             foreach (var dir in Directory.EnumerateDirectories(directoryName, "*", SearchOption.AllDirectories))
             {
-                ProcessSingleDirectory(dir);
+                ProcessDirectory(dir);
             }
         }
 
@@ -64,10 +66,24 @@ namespace SqlBatchRunner
         public string GetConnectionStringFromXML(string xmlFile, string parameterName)
         {
             var xml = XDocument.Load(xmlFile);
+            var valueAttributeName = "value";
 
             var node = xml.Descendants("setParameter").Where(n => n.Attribute("name").Value.Equals(parameterName, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
-            return node.Attribute("value").Value;
+            if (node == null)
+            {
+                node = xml.Descendants("add").Where(n => n.Attribute("name").Value.Equals(parameterName, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                valueAttributeName = "connectionString";
+            }
+
+            try
+            {
+                return node.Attribute(valueAttributeName).Value;
+            }
+            catch (NullReferenceException)
+            {
+                throw new Exception("Unable to find connectionstring");
+            }
         }
     }
 }

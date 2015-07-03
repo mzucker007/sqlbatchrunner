@@ -43,7 +43,15 @@ namespace SqlBatchRunner
 
                 var c = new ConfigScanner(xmlFile);
 
-                c.ProcessDirectory(directoryPath);
+                try
+                { 
+                    c.ProcessDirectory(directoryPath);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Execution failure: {0}", e.Message);
+                    return 1;
+                }
             }
             else
             {
