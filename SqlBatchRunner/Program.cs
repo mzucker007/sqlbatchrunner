@@ -1,16 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SqlBatchRunner
 {
     class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
+            var result = 0;
+
             if (args.Length == 1)
             {
                 /**
@@ -18,32 +16,41 @@ namespace SqlBatchRunner
                  */
 
                 //  create SqlBatchControl table if it doesn't exist
-                SqlRunner.createControlTable();
+                //SqlRunner.createControlTable();
 
                 //  execute sql found in target folder
                 Console.WriteLine("Executing SQL found in {0}", args[0]);
-                SqlRunner.Run(args[0]);
+                //SqlRunner.Run(args[0]);
             }
             else if (args.Length == 0)
             {
                 //  If no command line arguments, first check the directory in the App.Config.
                 //  Otherwise, just execute the *.sql found in the current directory.
                 String directoryName = ConfigurationManager.AppSettings["DirectoryName"] != "" ? ConfigurationManager.AppSettings["DirectoryName"] : Environment.CurrentDirectory;
+                String connectionString = ConfigurationManager.AppSettings["ConnectionString"];
 
                 //  create SqlBatchControl table if it doesn't exist
-                SqlRunner.createControlTable();
+                var runner = new SqlRunner(connectionString);
 
                 //  execute sql found folder local to execution context
                 Console.WriteLine("Executing SQL found in {0}", directoryName);
-                SqlRunner.Run(directoryName);
+                runner.Run(directoryName);
+            }
+            else if (args.Length == 2)
+            {
+                var directoryPath = args[0];
+                var xmlFile = args[1];
+
+                var c = new ConfigScanner(xmlFile);
+
+                c.ProcessDirectory(directoryPath);
             }
             else
             {
                 Console.WriteLine("Expecting only one argument, the path to sql files.");
             }
 
-            Console.WriteLine("Hit any key to continue...");
-            Console.ReadLine();
+            return result;
         }
     }
 }
