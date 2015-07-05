@@ -8,7 +8,7 @@ namespace SqlBatchRunner
         static int Main(string[] args)
         {
             var result = 0;
-
+            
             if (args.Length == 1)
             {
                 /**
@@ -45,7 +45,11 @@ namespace SqlBatchRunner
 
                 try
                 { 
-                    c.ProcessDirectory(directoryPath);
+                    if (!c.ProcessDirectory(directoryPath))
+                    {
+                        Console.WriteLine("No configuration file found.");
+                        return 1;
+                    }
                 }
                 catch (Exception e)
                 {

@@ -9,6 +9,16 @@ namespace SqlBatchRunner
         public string ConnectionString { get; set; }
 
         [DataMember]
-        public string SettingsXMLPath { get; set; }
+        public ConnectionStringPathAndAttribute[] ConnectionStringXmlSearch { get; set; }
+    }
+
+    [DataContract]
+    public class ConnectionStringPathAndAttribute
+    {
+        [DataMember]
+        public string NodePath { get; set; }
+
+        [DataMember]
+        public string Attribute { get; set; }
     }
 }

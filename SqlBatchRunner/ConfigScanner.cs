@@ -1,41 +1,50 @@
 ﻿using System;
-using System.Linq;
 using System.IO;
 using System.Xml.Linq;
+using System.Xml.XPath;
 using System.Runtime.Serialization.Json;
+using System.Collections.Generic;
 
 namespace SqlBatchRunner
 {
     public class ConfigScanner
     {
         private string xmlFile;
+        private bool configFound;
 
         public ConfigScanner(string xmlFileName)
         {
-            this.xmlFile = xmlFileName;
+            xmlFile = xmlFileName;
+            configFound = false;
         }
 
-        private void ProcessSingleDirectory(string directoryName)
-        {
-            var filename = Path.Combine(directoryName, "config.json");
-            if (File.Exists(filename))
-            {
-                Console.WriteLine("Processing directory {0}", directoryName);
-
-                var connectionString = GetConnectionString(directoryName);
-
-                var runner = new SqlRunner(connectionString);
-                runner.Run(directoryName);
-            }
-        }
-
-        public void ProcessDirectory(string directoryName)
+        public bool ProcessDirectory(string directoryName)
         {
             ProcessSingleDirectory(directoryName);
 
             foreach (var dir in Directory.EnumerateDirectories(directoryName, "*", SearchOption.AllDirectories))
             {
                 ProcessDirectory(dir);
+            }
+
+            return configFound;
+        }
+
+        void ProcessSingleDirectory(string directoryName)
+        {
+            var filename = Path.Combine(directoryName, "config.json");
+            if (File.Exists(filename))
+            {
+                configFound = true;
+
+                Console.WriteLine("Processing directory {0}", directoryName);
+
+                var connectionString = GetConnectionString(directoryName);
+
+                var runner = new SqlRunner(connectionString);
+                runner.Run(directoryName);
+
+                Console.WriteLine();
             }
         }
 
@@ -49,41 +58,38 @@ namespace SqlBatchRunner
             return config;
         }
 
-        public string GetConnectionString(string dirName)
+        string GetConnectionString(string dirName)
         {
+            string result = null;
+
             var config = GetConfig(dirName);
 
-            if (!string.IsNullOrWhiteSpace(config.SettingsXMLPath))
-            {
-                return GetConnectionStringFromXML(xmlFile, config.SettingsXMLPath);
-            }
-            else
-            {
-                return config.ConnectionString;
-            }
+            if (config.ConnectionStringXmlSearch != null)
+                result = GetConnectionStringFromXML(xmlFile, config.ConnectionStringXmlSearch);
+
+            if (string.IsNullOrEmpty(result))
+                result = config.ConnectionString;
+
+            return result;
         }
 
-        public string GetConnectionStringFromXML(string xmlFile, string parameterName)
+        string GetConnectionStringFromXML(string xmlFile, IEnumerable<ConnectionStringPathAndAttribute> searchValues)
         {
+            string result = null;
+
             var xml = XDocument.Load(xmlFile);
-            var valueAttributeName = "value";
 
-            var node = xml.Descendants("setParameter").Where(n => n.Attribute("name").Value.Equals(parameterName, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-
-            if (node == null)
+            foreach (var search in searchValues)
             {
-                node = xml.Descendants("add").Where(n => n.Attribute("name").Value.Equals(parameterName, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-                valueAttributeName = "connectionString";
+                var node = xml.XPathSelectElement(search.NodePath);
+                if (node != null)
+                {
+                    result = node.Attribute(search.Attribute).Value;
+                    break;
+                }
             }
 
-            try
-            {
-                return node.Attribute(valueAttributeName).Value;
-            }
-            catch (NullReferenceException)
-            {
-                throw new Exception("Unable to find connectionstring");
-            }
+            return result;
         }
     }
 }
