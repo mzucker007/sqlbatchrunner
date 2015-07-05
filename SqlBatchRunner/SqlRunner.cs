@@ -12,9 +12,17 @@ namespace SqlBatchRunner
     {
         private String connectionString;
 
+        private bool isUnattendedModeEnabled;
+
         public SqlRunner(String connectionString)
         {
             this.connectionString = connectionString;
+            this.isUnattendedModeEnabled = true;
+        }
+
+        public void EnableManualMode()
+        {
+            isUnattendedModeEnabled = false;
         }
 
         public void Run(String folderPath)
@@ -59,15 +67,22 @@ namespace SqlBatchRunner
             try
             {
                 con.Open();
-                foreach (var query in sqlqueries)
+
+                if (isUnattendedModeEnabled || ConfirmToContinue(" Run batch: " + fileName))
                 {
-                    cmd.CommandText = query;
-                    cmd.ExecuteNonQuery();
+                    foreach (var query in sqlqueries)
+                    {
+                        cmd.CommandText = query;
+                        cmd.ExecuteNonQuery();
+                    }
                 }
 
                 //  log the filename in table
-                cmd.CommandText = String.Format("insert into [dbo].[SqlBatchControl] (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
-                cmd.ExecuteNonQuery();
+                if (isUnattendedModeEnabled || ConfirmToContinue(" Update tracking table"))
+                {
+                    cmd.CommandText = String.Format("insert into [dbo].[SqlBatchControl] (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
+                    cmd.ExecuteNonQuery();
+                }
             }
             //catch (Exception ex)
             //{
@@ -78,6 +93,23 @@ namespace SqlBatchRunner
                 con.Close();
             }
             return;
+        }
+
+        private bool ConfirmToContinue(string v)
+        {
+            //Console.WriteLine(v);
+            bool check = false;
+            ConsoleKeyInfo ck;
+            do
+            {
+                Console.Write("\r{0}? (y/n)  \b", v);
+                ck = Console.ReadKey();
+                check = !((ck.Key == ConsoleKey.Y) || (ck.Key == ConsoleKey.N));
+            } while (check);
+
+            Console.WriteLine();
+
+            return ck.Key == ConsoleKey.Y;
         }
 
         public bool createControlTable()

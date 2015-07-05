@@ -11,11 +11,18 @@ namespace SqlBatchRunner
     {
         private string xmlFile;
         private bool configFound;
+        private bool isUnattendedModeEnabled;
 
         public ConfigScanner(string xmlFileName)
         {
             xmlFile = xmlFileName;
             configFound = false;
+            isUnattendedModeEnabled = true;
+        }
+
+        public void EnableManualMode()
+        {
+            isUnattendedModeEnabled = false;
         }
 
         public bool ProcessDirectory(string directoryName)
@@ -42,6 +49,8 @@ namespace SqlBatchRunner
                 var connectionString = GetConnectionString(directoryName);
 
                 var runner = new SqlRunner(connectionString);
+                if (!isUnattendedModeEnabled)
+                    runner.EnableManualMode();        
                 runner.Run(directoryName);
 
                 Console.WriteLine();

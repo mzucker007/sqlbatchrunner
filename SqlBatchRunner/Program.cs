@@ -36,12 +36,18 @@ namespace SqlBatchRunner
                 Console.WriteLine("Executing SQL found in {0}", directoryName);
                 runner.Run(directoryName);
             }
-            else if (args.Length == 2)
+            else if (args.Length >= 2)
             {
                 var directoryPath = args[0];
                 var xmlFile = args[1];
 
                 var c = new ConfigScanner(xmlFile);
+
+                if (args.Length == 3 && args[2] == "-m")
+                {
+                    Console.WriteLine("Manual mode enabled");
+                    c.EnableManualMode();
+                }
 
                 try
                 { 
