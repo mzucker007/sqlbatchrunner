@@ -18,6 +18,7 @@ namespace SqlBatchRunner
         {
             var folderInfo = new DirectoryInfo(folderPath);
             FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
+            sqlFiles.OrderBy(f => f.Name);
             String[] filesPreviouslyRun = readControlTable();
             foreach (var fileojb in sqlFiles)
             {
@@ -38,7 +39,7 @@ namespace SqlBatchRunner
             Console.WriteLine("Running: {0}", fileojb.Name);
             var fileContent = File.ReadAllText(fileojb.FullName);
             fileContent = fileContent.Replace("GO", "go");
-            var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
+            var sqlqueries = fileContent.Split(new[] { "go\r\n", "go\n" }, StringSplitOptions.RemoveEmptyEntries);
 
             //var connectionString = ConfigurationManager.AppSettings["ConnectionString"];
             var con = new SqlConnection(connectionString);
