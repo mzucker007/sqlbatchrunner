@@ -84,10 +84,6 @@ namespace SqlBatchRunner
                     cmd.ExecuteNonQuery();
                 }
             }
-            //catch (Exception ex)
-            //{
-            //    Console.WriteLine(ex.Message);
-            //}
             finally
             {
                 con.Close();
@@ -97,7 +93,6 @@ namespace SqlBatchRunner
 
         private bool ConfirmToContinue(string v)
         {
-            //Console.WriteLine(v);
             bool check = false;
             ConsoleKeyInfo ck;
             do
@@ -129,11 +124,6 @@ namespace SqlBatchRunner
                 cmd.ExecuteNonQuery();
                 result = true;
             }
-            //catch (Exception ex)
-            //{
-            //    result = false;
-            //    Console.WriteLine(ex.Message);
-            //}
             finally
             {
                 con.Close();
@@ -157,10 +147,6 @@ namespace SqlBatchRunner
                     fileDataTable = new DataTable();
                     fileDataTable.Load(reader);
                 }
-                //catch (Exception ex)
-                //{
-                //    Console.WriteLine(ex.Message);
-                //}
                 finally
                 {
                     con.Close();

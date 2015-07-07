@@ -1,6 +1,6 @@
 # SqlBatchRunner
 
-This is a simple utility to apply sql batches to a database and track which batches have been already applied.
+This utility recursively scans a directory to find *.sql files, applies them to a database and tracks which ones have been already applied.
 
 SQL Server only.
 
@@ -10,18 +10,33 @@ A control table named dbo.SqlBatchControl will be created in the database if it 
 
 Save *.sql files to a folder.
 
-Edit connection string in SqlBatchRunner.exe.config
+Create a file named config.json in the following format.
 
-Edit directory path for *.sql files in SqlBatchRunner.exe.config (optional). 
+{ 
+	"ConnectionString":"connect",
+	"ConnectionStringXmlSearch":[
+		{
+			"Attribute":"value",
+			"NodePath":"parameters\/setParameter[@name=\"name-as-specified-in-parameters-file\"]"
+		},
+		{
+			"Attribute":"connectionString",
+			"NodePath":"connectionStrings\/add[@name=\"name-as-specified-in-web.config\"]"
+		}
+	]
+}
+
+If ConnectionString isn't specified, SqlBatchRunner will expect a second parameter to specify an XML file in the format of a Web.config, or in the format of a WebDeploy xml parameters file. 
+
+To run the tool, specify the root directory of your sql scripts and the XML file containing your connection strings.
 
 Execute as follows:
 ```
-SqlBatchRunner.exe [path-to-sql-files]
+SqlBatchRunner.exe [path-to-directory-containing-sql-files] [path-to-web.config]
 ```
 
-Optional. If you copy SqlBatchRunner.exe and SqlBatchRunner.exe.config into the folder with the sql files, it will execute the sql files in that folder. Otherwise, you can pass the path-to-sql files as an argument in the command line, or set it in the config file.
+Example:
 
+SqlBatchRunner.exe c:\projects\mvcproject\dbscripts c:\projects\mvcproject\web.release.config
 
-
-
-
+SqlBatchRunner accepts an optional third parameter, -m, which enables manual mode. Before executing any SQL script, SqlBatchRunner will prompt you to run the script. Whether or not you run the script, you’ll be prompted to update the tracking table. Manual mode is designed for getting an existing database updated when first implementing this tool.
