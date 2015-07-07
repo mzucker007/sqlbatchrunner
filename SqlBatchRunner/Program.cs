@@ -8,7 +8,7 @@ namespace SqlBatchRunner
         static int Main(string[] args)
         {
             var result = 0;
-
+            
             if (args.Length == 1)
             {
                 /**
@@ -36,14 +36,32 @@ namespace SqlBatchRunner
                 Console.WriteLine("Executing SQL found in {0}", directoryName);
                 runner.Run(directoryName);
             }
-            else if (args.Length == 2)
+            else if (args.Length >= 2)
             {
                 var directoryPath = args[0];
                 var xmlFile = args[1];
 
                 var c = new ConfigScanner(xmlFile);
 
-                c.ProcessDirectory(directoryPath);
+                if (args.Length == 3 && args[2] == "-m")
+                {
+                    Console.WriteLine("Manual mode enabled");
+                    c.EnableManualMode();
+                }
+
+                try
+                { 
+                    if (!c.ProcessDirectory(directoryPath))
+                    {
+                        Console.WriteLine("No configuration file found.");
+                        return 1;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Execution failure: {0}", e.Message);
+                    return 1;
+                }
             }
             else
             {

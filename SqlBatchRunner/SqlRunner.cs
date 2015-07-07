@@ -12,9 +12,17 @@ namespace SqlBatchRunner
     {
         private String connectionString;
 
+        private bool isUnattendedModeEnabled;
+
         public SqlRunner(String connectionString)
         {
             this.connectionString = connectionString;
+            this.isUnattendedModeEnabled = true;
+        }
+
+        public void EnableManualMode()
+        {
+            isUnattendedModeEnabled = false;
         }
 
         public void Run(String folderPath)
@@ -51,7 +59,7 @@ namespace SqlBatchRunner
         {
             Console.WriteLine("Running: {0}", fileName);
             fileContent = fileContent.Replace("GO", "go").Replace("Go", "go");
-            var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
+            var sqlqueries = fileContent.Split(new[] { "go\r\n", "go\n" }, StringSplitOptions.RemoveEmptyEntries);
 
             var con = new SqlConnection(connectionString);
             var cmd = new SqlCommand("query", con);
@@ -59,25 +67,44 @@ namespace SqlBatchRunner
             try
             {
                 con.Open();
-                foreach (var query in sqlqueries)
+
+                if (isUnattendedModeEnabled || ConfirmToContinue(" Run batch: " + fileName))
                 {
-                    cmd.CommandText = query;
-                    cmd.ExecuteNonQuery();
+                    foreach (var query in sqlqueries)
+                    {
+                        cmd.CommandText = query;
+                        cmd.ExecuteNonQuery();
+                    }
                 }
 
                 //  log the filename in table
-                cmd.CommandText = String.Format("insert SqlBatchControl (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
-                cmd.ExecuteNonQuery();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
+                if (isUnattendedModeEnabled || ConfirmToContinue(" Update tracking table"))
+                {
+                    cmd.CommandText = String.Format("insert into [dbo].[SqlBatchControl] (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
+                    cmd.ExecuteNonQuery();
+                }
             }
             finally
             {
                 con.Close();
             }
             return;
+        }
+
+        private bool ConfirmToContinue(string v)
+        {
+            bool check = false;
+            ConsoleKeyInfo ck;
+            do
+            {
+                Console.Write("\r{0}? (y/n)  \b", v);
+                ck = Console.ReadKey();
+                check = !((ck.Key == ConsoleKey.Y) || (ck.Key == ConsoleKey.N));
+            } while (check);
+
+            Console.WriteLine();
+
+            return ck.Key == ConsoleKey.Y;
         }
 
         public bool createControlTable()
@@ -96,11 +123,6 @@ namespace SqlBatchRunner
                 con.Open();
                 cmd.ExecuteNonQuery();
                 result = true;
-            }
-            catch (Exception ex)
-            {
-                result = false;
-                Console.WriteLine(ex.Message);
             }
             finally
             {
@@ -124,10 +146,6 @@ namespace SqlBatchRunner
                     SqlDataReader reader = cmd.ExecuteReader();
                     fileDataTable = new DataTable();
                     fileDataTable.Load(reader);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
                 }
                 finally
                 {
