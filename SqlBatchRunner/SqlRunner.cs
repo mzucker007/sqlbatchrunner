@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Data;
 using System.Security.Cryptography;
+using System.Collections.Generic;
 
 namespace SqlBatchRunner
 {
@@ -32,8 +33,7 @@ namespace SqlBatchRunner
             if (filesPreviouslyRun != null)
             {
                 var folderInfo = new DirectoryInfo(folderPath);
-                FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
-                sqlFiles.OrderBy(f => f.Name);
+                var sqlFiles = folderInfo.EnumerateFiles("*.sql").OrderBy(f => f.Name);
 
                 foreach (var fileojb in sqlFiles)
                 {
@@ -42,12 +42,15 @@ namespace SqlBatchRunner
                     //  calculate checksum of file contents
                     var cksum = createCkSum(fileContent);
 
+                    Console.Write("{0} : {1}", fileojb.Name, cksum);
+
                     if (filesPreviouslyRun.AsEnumerable().Any(row => cksum == row.Field<String>("CheckSum")))
                     {
-                        Console.WriteLine("Previously executed: {0} with checksum: {1}", fileojb.Name, cksum);
+                        Console.WriteLine(" - Previously executed");
                     }
                     else
                     {
+                        Console.WriteLine(" - Running...");
                         runSql(fileojb.Name, fileContent, cksum);
                     }
                 }
@@ -57,10 +60,6 @@ namespace SqlBatchRunner
 
         void runSql(String fileName, String fileContent, String cksum)
         {
-            Console.WriteLine("Running: {0}", fileName);
-            fileContent = fileContent.Replace("GO", "go").Replace("Go", "go");
-            var sqlqueries = fileContent.Split(new[] { "go\r\n", "go\n" }, StringSplitOptions.RemoveEmptyEntries);
-
             var con = new SqlConnection(connectionString);
             var cmd = new SqlCommand("query", con);
 
@@ -70,7 +69,7 @@ namespace SqlBatchRunner
 
                 if (isUnattendedModeEnabled || ConfirmToContinue(" Run batch: " + fileName))
                 {
-                    foreach (var query in sqlqueries)
+                    foreach (var query in Queries(fileContent))
                     {
                         cmd.CommandText = query;
                         cmd.ExecuteNonQuery();
@@ -83,6 +82,11 @@ namespace SqlBatchRunner
                     cmd.CommandText = String.Format("insert into [dbo].[SqlBatchControl] (OriginalFileName, CheckSum, Connection) values ('{0}', '{1}', '{2}')", fileName, cksum, con.Database);
                     cmd.ExecuteNonQuery();
                 }
+            }
+            catch (SqlException)
+            {
+                Console.WriteLine(cmd.CommandText);
+                throw;
             }
             finally
             {
@@ -163,6 +167,40 @@ namespace SqlBatchRunner
             {
                 return BitConverter.ToString(md5.ComputeHash(filetextBytes)).Replace("-", string.Empty);
             }
+        }
+
+        IEnumerable<string> Queries(string queryfile)
+        {
+            List<string> queries = new List<string>();
+
+            using (var reader = new StringReader(queryfile))
+            {
+                StringBuilder qb = new StringBuilder();
+                string line = null;
+
+                do
+                {
+                    line = reader.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(line))
+                    {
+                        if (line.Trim().Equals("go", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (qb.Length > 0)
+                            {
+                                queries.Add(qb.ToString());
+                                qb.Clear();
+                            }
+                        }
+                        else
+                            qb.AppendLine(line);
+                    }
+                } while (line != null);
+
+                if (qb.Length > 0)
+                    queries.Add(qb.ToString());
+            }
+
+            return queries;
         }
     }
 }
