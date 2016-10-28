@@ -12,13 +12,15 @@ namespace SqlBatchRunner
 {
     static class SqlRunner
     {
-        private static String connectionString = ConfigurationManager.AppSettings["ConnectionString"];
+        private static string[] CRUDStarters = new string[] { "SELECT", "INSERT", "UPDATE", "DELETE" };
 
-        public static int Run(String folderPath)
+        private static string connectionString = ConfigurationManager.AppSettings["ConnectionString"];
+
+        public static int Run(string folderPath)
         {
             var folderInfo = new DirectoryInfo(folderPath);
             FileInfo[] sqlFiles = folderInfo.GetFiles("*.sql");
-            String[] filesPreviouslyRun = readControlTable();
+            string[] filesPreviouslyRun = readControlTable();
             foreach (var fileojb in sqlFiles)
             {
                 if (Array.IndexOf(filesPreviouslyRun, fileojb.Name) > -1)
@@ -36,30 +38,46 @@ namespace SqlBatchRunner
         static int runSql(FileInfo fileojb)
         {
             Console.WriteLine("Running: {0}", fileojb.Name);
-            var fileContent = File.ReadAllText(fileojb.FullName);
-            fileContent = fileContent.Replace("GO", "go");
-            var sqlqueries = fileContent.Split(new[] { "go" }, StringSplitOptions.RemoveEmptyEntries);
+            // Covers funky characters
+            var fileContent = File.ReadAllText(fileojb.FullName, Encoding.UTF7);
 
-            //var connectionString = ConfigurationManager.AppSettings["ConnectionString"];
+            var sqlqueries = fileContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None );
+
             var con = new SqlConnection(connectionString);
-            var cmd = new SqlCommand("query", con);
+            con.Open();
+            SqlTransaction trans = con.BeginTransaction();
 
             try
             {
-                con.Open();
-                foreach (var query in sqlqueries)
+                var cmd = new SqlCommand("query", con, trans); 
+                string currentQuery = string.Empty;
+                foreach (var str in sqlqueries)
                 {
-                    cmd.CommandText = query;
-                    cmd.ExecuteNonQuery();
+                    if (str.Trim().ToUpper().CompareTo("GO") == 0 && currentQuery.Length > 0)
+                    {
+                        cmd.CommandText = currentQuery;
+                        cmd.ExecuteNonQuery();
+                        currentQuery = string.Empty;
+                    }
+                    else
+                        currentQuery += str + Environment.NewLine;
                 }
 
+                if (currentQuery.Length > 0)
+                {
+                    cmd.CommandText = currentQuery;
+                    cmd.ExecuteNonQuery();
+                    currentQuery = string.Empty;
+                }
                 //  log the filename in table
-                cmd.CommandText = String.Format("insert SqlBatchControl (filename) values ('{0}')", fileojb.Name);
+                cmd.CommandText = string.Format("insert SqlBatchControl (filename) values ('{0}')", fileojb.Name);
                 cmd.ExecuteNonQuery();
+                trans.Commit();
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                trans.Rollback();
             }
             finally
             {
@@ -72,7 +90,7 @@ namespace SqlBatchRunner
         {
             bool result;
             var con = new SqlConnection(connectionString);
-            var cmd = new SqlCommand( @"if object_id(N'dbo.SqlBatchControl') is null 
+            var cmd = new SqlCommand(@"if object_id(N'dbo.SqlBatchControl') is null 
                                         create table dbo.SqlBatchControl ( 
 	                                    id int identity(1,1) primary key, 
 	                                    filename varchar(max) not null, 
@@ -96,7 +114,7 @@ namespace SqlBatchRunner
             return result;
         }
 
-        static String[] readControlTable()
+        static string[] readControlTable()
         {
             List<String> filesPreviouslyRun = new List<string>();
             var con = new SqlConnection(connectionString);
