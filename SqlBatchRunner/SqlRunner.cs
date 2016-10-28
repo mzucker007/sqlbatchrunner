@@ -12,8 +12,6 @@ namespace SqlBatchRunner
 {
     static class SqlRunner
     {
-        private static string[] CRUDStarters = new string[] { "SELECT", "INSERT", "UPDATE", "DELETE" };
-
         private static string connectionString = ConfigurationManager.AppSettings["ConnectionString"];
 
         public static int Run(string folderPath)
