@@ -38,7 +38,7 @@ namespace SqlBatchRunner
         {
             Console.WriteLine("Running: {0}", fileojb.Name);
             // Covers funky characters
-            var fileContent = File.ReadAllText(fileojb.FullName, Encoding.UTF7);
+            var fileContent = File.ReadAllText(fileojb.FullName, Encoding.UTF8);
             var sqlqueries = fileContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None );
 
             var con = new SqlConnection(connectionString);
